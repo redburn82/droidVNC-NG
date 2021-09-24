@@ -199,7 +199,26 @@ public class MainActivity extends AppCompatActivity {
             ed.putBoolean(Constants.PREFS_KEY_SETTINGS_START_ON_BOOT, b);
             ed.commit();
         });
+/*      JHG
+        final SwitchMaterial autoStart = findViewById(R.id.settings_auto_start);
+        autoStart.setChecked(prefs.getBoolean(Constants.PREFS_KEY_SETTINGS_AUTO_START, false));
+        if(autoStart.isChecked() == true){
+            Log.d("JHG", "this switch was checked");
+            Intent intent = new Intent(MainActivity.this, MainService.class);
+            intent.setAction(MainService.ACTION_START);
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        }
+        autoStart.setOnCheckedChangeListener((compoundButton, b) -> {
+            SharedPreferences.Editor ed = prefs.edit();
+            ed.putBoolean(Constants.PREFS_KEY_SETTINGS_AUTO_START, b);
+            ed.commit();
+        });
+*/
         Slider scaling = findViewById(R.id.settings_scaling);
         scaling.setValue(prefs.getFloat(Constants.PREFS_KEY_SETTINGS_SCALING, Constants.DEFAULT_SCALING)*100);
         scaling.setLabelFormatter(value -> Math.round(value) + " %");

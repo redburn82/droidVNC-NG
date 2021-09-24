@@ -5,6 +5,7 @@
     <string name="main_activity_settings_port">Port</string>
     <string name="main_activity_settings_password">Password</string>
     <string name="main_activity_settings_start_on_boot">Start on Boot</string>
+    <string name="main_activity_settings_auto_start">JHG: Auto Starting Screen Mirror</string>
     <string name="main_activity_settings_scaling">Scaling</string>
     <string name="main_activity_permissions_dashboard">Permissions Dashboard</string>
     <string name="main_activity_colon">:</string>
@@ -21,6 +22,10 @@
     <string name="main_activity_reverse_vnc_fail">Connection to %1$s:%2$d failed</string>
     <string name="main_activity_special_key_reference">From a VNC viewer, <b>Ctrl-Shift-Esc</b> triggers \'Recent Apps\' overview, <b>Home/Pos1</b> acts as Home button, <b>Escape</b> acts as Back button.</string>
     <string name="main_activity_about">This is droidVNC-NG %1$s. Please note that more features are still being added to droidVNC-NG. In particular, most keyboard strokes as of now can only be input via the Android soft keyboard, there is only limited support for keyboard events from VNC viewers (yet). Please report any issues and feature requests at https://github.com/bk138/droidVNC-NG</string>
+    <string name="long_shortcut_start">start</string>
+    <string name="short_shortcut_start">shortcut start</string>
+    <string name="long_shortcut_stop">stop</string>
+    <string name="short_shortcut_stop">shortcut stop</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="error">Error</string>

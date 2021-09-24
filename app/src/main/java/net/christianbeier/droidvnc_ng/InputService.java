@@ -257,9 +257,13 @@ public class InputService extends AccessibilityService {
 
 	private void endGesture(int x, int y) {
 		mPath.lineTo( x, y );
+		long mCurrent = System.currentTimeMillis();
 		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, System.currentTimeMillis() - mLastGestureStartTime);
 		GestureDescription.Builder builder = new GestureDescription.Builder();
 		builder.addStroke(stroke);
+		Log.e("JHGTMP", "prev:"+Float.toString(mLastGestureStartTime));
+		Log.e("JHGTMP", "cur:"+Float.toString(mCurrent));
+		Log.e("JHGTMP", "cur -  prev:"+Float.toString(mCurrent - mLastGestureStartTime));
 		dispatchGesture(builder.build(), null, null);
 	}
 

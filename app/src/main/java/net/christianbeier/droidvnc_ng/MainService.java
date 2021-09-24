@@ -90,6 +90,7 @@ public class MainService extends Service {
 
     private static MainService instance;
 
+    //private static final Subject<StatusEvent> mStatusEventStream = BehaviorSubject.createDefault(StatusEvent.STOPPED).toSerialized();
     private static final Subject<StatusEvent> mStatusEventStream = BehaviorSubject.createDefault(StatusEvent.STOPPED).toSerialized();
     public enum StatusEvent {
         STARTED,
