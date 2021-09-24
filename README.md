@@ -1,6 +1,6 @@
-# jhg comment
+# jhg comment (it's TEMP REPO to keep for a while before pull reqeust to bk138/droidVNC-NG repo)
 ## 1. download and build
-- Don't forget to Fetch upstream button for a long time. 
+- Don't forget a button of "Fetch upstream"  for a long time
 - git clone --recurse-submodules git@github.com:redburn82/droidVNC-NG.git
 - then build it with android studio latest
 
