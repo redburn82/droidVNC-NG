@@ -1,3 +1,9 @@
+# jhg comment
+## 1. download and build
+- git clone --recurse-submodules git@github.com:redburn82/droidVNC-NG.git
+- then build it with android studio latest
+
+---
 # droidVNC-NG
 
 This is an Android VNC server using contemporary Android 5+ APIs. It therefore does not require
