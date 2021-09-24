@@ -177,7 +177,7 @@ public class MainService extends Service {
 
         if (!vncStartServer(displayMetrics.widthPixels,
                 displayMetrics.heightPixels,
-                prefs.getInt(Constants.PREFS_KEY_SETTINGS_PORT, 5900),
+                prefs.getInt(Constants.PREFS_KEY_SETTINGS_PORT, Constants.DEFAULT_PORT),
                 Settings.Secure.getString(getContentResolver(), "bluetooth_name"),
                 prefs.getString(Constants.PREFS_KEY_SETTINGS_PASSWORD, "")))
             stopSelf();
@@ -458,7 +458,7 @@ public class MainService extends Service {
 
         try {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(instance);
-            port = prefs.getInt(Constants.PREFS_KEY_SETTINGS_PORT, 5900);
+            port = prefs.getInt(Constants.PREFS_KEY_SETTINGS_PORT, Constants.DEFAULT_PORT);
         } catch (NullPointerException e) {
             //unused
         }
