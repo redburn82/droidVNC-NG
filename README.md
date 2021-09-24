@@ -1,5 +1,6 @@
 # jhg comment
 ## 1. download and build
+- Don't forget to Fetch upstream button for a long time. 
 - git clone --recurse-submodules git@github.com:redburn82/droidVNC-NG.git
 - then build it with android studio latest
 
