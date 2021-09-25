@@ -23,7 +23,7 @@ package net.christianbeier.droidvnc_ng;
 
 public class Constants {
 
-    public static final int DEFAULT_PORT = 5901;
+    public static final int DEFAULT_PORT = 5900;
     public static final int DEFAULT_PORT_REVERSE = 5500;
     public static final float DEFAULT_SCALING = 0.35f;
     public static final String PREFS_KEY_SETTINGS_PORT = "settings_port";
