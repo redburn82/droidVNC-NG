@@ -133,8 +133,9 @@ public class InputService extends AccessibilityService {
 			// up, was down
 			if ((buttonMask & (1 << 0)) == 0 && instance.mIsButtonOneDown) {
 				Log.i("JHGTMP","up, was down - endGesture");
-				instance.mIsButtonOneDown = false;
+				//instance.mIsButtonOneDown = false;
 				instance.endGesture(x, y);
+				instance.mIsButtonOneDown = false;
 			}
 
 			// right mouse button
@@ -164,6 +165,8 @@ public class InputService extends AccessibilityService {
 		} catch (Exception e) {
 			// instance probably null
 			Log.e(TAG, "onPointerEvent: failed: " + e.toString());
+			//JHG: tmp code for rest this state machine
+			instance.mIsButtonOneDown = false;
 		}
 	}
 
@@ -260,9 +263,12 @@ public class InputService extends AccessibilityService {
 	private void endGesture(int x, int y) {
 		mPath.lineTo( x, y );
 		long mCurrent = System.currentTimeMillis();
-		Log.e("JHGTMP", "prev:"+Float.toString(mLastGestureStartTime));
-		Log.e("JHGTMP", "cur:"+Float.toString(mCurrent));
-		Log.e("JHGTMP", "cur -  prev:"+Float.toString(mCurrent - mLastGestureStartTime));
+		//Log.e("JHGTMP", "prev:"+Float.toString(mLastGestureStartTime));
+		//Log.e("JHGTMP", "cur:"+Float.toString(mCurrent));
+		if(mCurrent - mLastGestureStartTime < 0){
+			Log.e("JHGTMP", "cur -  prev:"+Float.toString(mCurrent - mLastGestureStartTime));
+		}
+
 		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, System.currentTimeMillis() - mLastGestureStartTime);
 		GestureDescription.Builder builder = new GestureDescription.Builder();
 		builder.addStroke(stroke);
