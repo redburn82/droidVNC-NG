@@ -50,6 +50,8 @@ public class InputService extends AccessibilityService {
 
 	private static InputService instance;
 
+	private Handler mMainHandler;
+
 	private boolean mIsButtonOneDown;
 	private Path mPath;
 	private long mLastGestureStartTime;
@@ -62,7 +64,7 @@ public class InputService extends AccessibilityService {
 
 	private float mScaling;
 
-	private GestureCallback mGestureCallback = new GestureCallback();
+	private final GestureCallback mGestureCallback = new GestureCallback();
 
 
 	@Override
@@ -76,6 +78,7 @@ public class InputService extends AccessibilityService {
 	{
 		super.onServiceConnected();
 		instance = this;
+		mMainHandler = new Handler(instance.getMainLooper());
 		Log.i(TAG, "onServiceConnected");
 	}
 
@@ -93,8 +96,8 @@ public class InputService extends AccessibilityService {
 	/**
 	 * Set scaling factor that's applied to incoming pointer events by dividing coordinates by
 	 * the given factor.
-	 * @param scaling
-	 * @return
+	 * @param scaling The scaling factor as a real number.
+	 * @return Whether scaling was applied or not.
 	 */
 	public static boolean setScaling(float scaling) {
 		try {
@@ -105,7 +108,7 @@ public class InputService extends AccessibilityService {
 		}
 	}
 
-
+	@SuppressWarnings("unused")
 	public static void onPointerEvent(int buttonMask, int x, int y, long client) {
 
 		try {
@@ -119,8 +122,8 @@ public class InputService extends AccessibilityService {
 			// down, was up
 			if ((buttonMask & (1 << 0)) != 0 && !instance.mIsButtonOneDown) {
 				Log.i("JHGTMP","down, was up ((" + Integer.toString(x)+","+Integer.toString(y)+"))");
-				instance.startGesture(x, y);
 				instance.mIsButtonOneDown = true;
+				instance.startGesture(x, y);
 			}
 
 			// down, was down
@@ -132,9 +135,8 @@ public class InputService extends AccessibilityService {
 			// up, was down
 			if ((buttonMask & (1 << 0)) == 0 && instance.mIsButtonOneDown) {
 				Log.i("JHGTMP","up, was down - endGesture ((" + Integer.toString(x)+","+Integer.toString(y)+"))");
-				//instance.mIsButtonOneDown = false;
-				instance.endGesture(x, y);
 				instance.mIsButtonOneDown = false;
+				instance.endGesture(x, y);
 			}
 
 			// right mouse button
@@ -163,6 +165,8 @@ public class InputService extends AccessibilityService {
 			}
 		} catch (Exception e) {
 			// instance probably null
+/*
+<<<<<<< HEAD
 			Log.e(TAG, "onPointerEvent: failed: " + e.toString());
 			//JHG: tmp code for rest this state machine
 			//instance.mIsButtonOneDown = false;
@@ -171,6 +175,9 @@ public class InputService extends AccessibilityService {
             if ( instance.mIsButtonOneDown == true ) {
                 instance.mIsButtonOneDown = false;
             }
+=======
+*/
+			Log.e(TAG, "onPointerEvent: failed: " + Log.getStackTraceString(e));
 		}
 	}
 
@@ -204,13 +211,7 @@ public class InputService extends AccessibilityService {
 		 	*/
 			if(instance.mIsKeyCtrlDown && instance.mIsKeyAltDown && instance.mIsKeyDelDown) {
 				Log.i(TAG, "onKeyEvent: got Ctrl-Alt-Del");
-				Handler mainHandler = new Handler(instance.getMainLooper());
-				mainHandler.post(new Runnable() {
-					@Override
-					public void run() {
-						MainService.togglePortraitInLandscapeWorkaround();
-					}
-				});
+				instance.mMainHandler.post(MainService::togglePortraitInLandscapeWorkaround);
 			}
 
 			/*
@@ -239,7 +240,7 @@ public class InputService extends AccessibilityService {
 
 		} catch (Exception e) {
 			// instance probably null
-			Log.e(TAG, "onKeyEvent: failed: " + e.toString());
+			Log.e(TAG, "onKeyEvent: failed: " + e);
 		}
 	}
 
@@ -247,10 +248,10 @@ public class InputService extends AccessibilityService {
 		Log.d(TAG, "onCutText: text '" + text + "' by client " + client);
 
 		try {
-			((ClipboardManager)instance.getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(text, text));
+			instance.mMainHandler.post(() -> ((ClipboardManager) instance.getSystemService(Context.CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(text, text)));
 		} catch (Exception e) {
 			// instance probably null
-			Log.e(TAG, "onCutText: failed: " + e.toString());
+			Log.e(TAG, "onCutText: failed: " + e);
 		}
 	}
 
@@ -266,6 +267,8 @@ public class InputService extends AccessibilityService {
 
 	private void endGesture(int x, int y) {
 		mPath.lineTo( x, y );
+/*
+<<<<<<< HEAD
 		long mCurrent = System.currentTimeMillis();
 		//Log.e("JHGTMP", "prev:"+Float.toString(mLastGestureStartTime));
 		//Log.e("JHGTMP", "cur:"+Float.toString(mCurrent));
@@ -274,6 +277,12 @@ public class InputService extends AccessibilityService {
 		}
 
 		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, System.currentTimeMillis() - mLastGestureStartTime);
+=======
+*/
+		long duration = System.currentTimeMillis() - mLastGestureStartTime;
+		// gesture ended very very shortly after start (< 1ms). make it 1ms to get dispatched to the system
+		if (duration == 0) duration = 1;
+		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, duration);
 		GestureDescription.Builder builder = new GestureDescription.Builder();
 		builder.addStroke(stroke);
 

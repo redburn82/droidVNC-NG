@@ -16,10 +16,17 @@
     <string name="main_activity_file_access">File Access</string>
     <string name="main_activity_input">Input</string>
     <string name="main_activity_address">The server is now reachable at</string>
+    <string name="main_activity_outbound_text">You can also make outbound connections:</string>
     <string name="main_activity_reverse_vnc_button">Connect to a listening viewer</string>
     <string name="main_activity_reverse_vnc_hint">Host:Port</string>
     <string name="main_activity_reverse_vnc_success">Connection to %1$s:%2$d succeeded</string>
     <string name="main_activity_reverse_vnc_fail">Connection to %1$s:%2$d failed</string>
+    <string name="main_activity_repeater_vnc_button">Connect to a repeater</string>
+    <string name="main_activity_repeater_vnc_hint">Host:Port</string>
+    <string name="main_activity_repeater_vnc_hint_id">ID on Repeater</string>
+    <string name="main_activity_repeater_vnc_success">Connection to %1$s:%2$d with ID %3$s succeeded</string>
+    <string name="main_activity_repeater_vnc_fail">Connection to %1$s:%2$d with ID %3$s failed</string>
+    <string name="main_activity_repeater_vnc_input_missing">Host and/or ID missing</string>
     <string name="main_activity_special_key_reference">From a VNC viewer, <b>Ctrl-Shift-Esc</b> triggers \'Recent Apps\' overview, <b>Home/Pos1</b> acts as Home button, <b>Escape</b> acts as Back button.</string>
     <string name="main_activity_about">This is droidVNC-NG %1$s. Please note that more features are still being added to droidVNC-NG. In particular, most keyboard strokes as of now can only be input via the Android soft keyboard, there is only limited support for keyboard events from VNC viewers (yet). Please report any issues and feature requests at https://github.com/bk138/droidVNC-NG</string>
     <string name="long_shortcut_start">start</string>
@@ -38,4 +45,5 @@
     <string name="input_a11y_act_not_found_msg">Could not find the default accessibility settings activity. Please configure accessibility settings manually.</string>
     <string name="write_storage_title">File access disabled</string>
     <string name="write_storage_msg">To be able to transfer files to and from your device, you need to enable file access for droidVNC-NG. Do you want to enable file access now?</string>
+    <string name="write_storage_msg_android_11">To be able to transfer files to and from your device, you need to enable file access for droidVNC-NG. Please note that saving files will only be possible in the \'Download\' and \'Documents\' directories. Do you want to enable file access now?</string>
 </resources>

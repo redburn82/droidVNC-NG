@@ -29,6 +29,7 @@
 
 rfbScreenInfoPtr theScreen;
 jclass theInputService;
+jclass theMainService;
 JavaVM *theVM;
 
 /*
@@ -102,7 +103,7 @@ static void onKeyEvent(rfbBool down, rfbKeySym key, rfbClientPtr cl)
     (*theVM)->DetachCurrentThread(theVM);
 }
 
-static void onCutText(char *text, int len, rfbClientPtr cl)
+static void onCutText(char *text, __unused int len, rfbClientPtr cl)
 {
     JNIEnv *env = NULL;
     if ((*theVM)->AttachCurrentThread(theVM, &env, NULL) != 0) {
@@ -118,6 +119,93 @@ static void onCutText(char *text, int len, rfbClientPtr cl)
         (*env)->ExceptionDescribe(env);
 
     (*theVM)->DetachCurrentThread(theVM);
+}
+
+void onClientDisconnected(rfbClientPtr cl)
+{
+    JNIEnv *env = NULL;
+    if ((*theVM)->AttachCurrentThread(theVM, &env, NULL) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "onClientDisconnected: could not attach thread, not calling MainService.onClientDisconnected()");
+        return;
+    }
+
+    jmethodID mid = (*env)->GetStaticMethodID(env, theMainService, "onClientDisconnected", "(J)V");
+    (*env)->CallStaticVoidMethod(env, theMainService, mid, (jlong)cl);
+
+    if ((*env)->ExceptionCheck(env))
+        (*env)->ExceptionDescribe(env);
+
+    (*theVM)->DetachCurrentThread(theVM);
+}
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "ConstantFunctionResult"
+static enum rfbNewClientAction onClientConnected(rfbClientPtr cl)
+{
+    // connect clientGoneHook
+    cl->clientGoneHook = onClientDisconnected;
+
+    /*
+     * call the managed version of this function
+     */
+    JNIEnv *env = NULL;
+    // check if already attached. happens on reverse connections
+    (*theVM)->GetEnv(theVM, (void **) &env, JNI_VERSION_1_6);
+    int wasAlreadyAttached = env != NULL;
+    // AttachCurrentThread() on an already attached thread is a no-op. https://developer.android.com/training/articles/perf-jni#threads
+    if ((*theVM)->AttachCurrentThread(theVM, &env, NULL) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "onClientConnected: could not attach thread, not calling MainService.onClientConnected()");
+        return RFB_CLIENT_ACCEPT;
+    }
+
+    jmethodID mid = (*env)->GetStaticMethodID(env, theMainService, "onClientConnected", "(J)V");
+    (*env)->CallStaticVoidMethod(env, theMainService, mid, (jlong)cl);
+
+    if ((*env)->ExceptionCheck(env))
+        (*env)->ExceptionDescribe(env);
+
+    // only detach if not attached before
+    if(!wasAlreadyAttached)
+        (*theVM)->DetachCurrentThread(theVM);
+    return RFB_CLIENT_ACCEPT;
+}
+#pragma clang diagnostic pop
+
+rfbClientPtr
+repeaterConnection(rfbScreenInfoPtr rfbScreen,
+                   char *repeaterHost,
+                   int repeaterPort,
+                   const char* repeaterIdentifier)
+{
+    rfbSocket sock;
+    rfbClientPtr cl;
+    char id[250];
+    __android_log_print(ANDROID_LOG_INFO, TAG, "Connecting to a repeater Host: %s:%d.", repeaterHost, repeaterPort);
+
+    if ((sock = rfbConnect(rfbScreen, repeaterHost, repeaterPort)) < 0)
+        return NULL;
+
+    memset(id, 0, sizeof(id));
+    if(snprintf(id, sizeof(id), "ID:%s", repeaterIdentifier) >= (int)sizeof(id)) {
+        /* truncated! */
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "Error, given ID is too long.\n");
+        return NULL;
+    }
+    __android_log_print(ANDROID_LOG_INFO, TAG, "Sending a repeater ID: %s.\n", id);
+    if (send(sock, id, sizeof(id),0) != sizeof(id)) {
+        rfbLog("writing id failed\n");
+        return NULL;
+    }
+    cl = rfbNewClient(rfbScreen, sock);
+    if (!cl) {
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "New client failed\n");
+        return NULL;
+    }
+
+    cl->reverseConnection = 0;
+    if (!cl->onHold)
+        rfbStartOnHoldClient(cl);
+    return cl;
 }
 
 /*
@@ -137,8 +225,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void __unused * reserved) {
      * https://stackoverflow.com/a/17449108/361413
     */
     JNIEnv *env = NULL;
-    (*theVM)->GetEnv(theVM, &env, JNI_VERSION_1_6); // this will always succeed in JNI_OnLoad()
+    (*theVM)->GetEnv(theVM, (void**) &env, JNI_VERSION_1_6); // this will always succeed in JNI_OnLoad()
     theInputService = (*env)->NewGlobalRef(env, (*env)->FindClass(env, "net/christianbeier/droidvnc_ng/InputService"));
+    theMainService = (*env)->NewGlobalRef(env, (*env)->FindClass(env, "net/christianbeier/droidvnc_ng/MainService"));
 
     rfbLog = logcat_info;
     rfbErr = logcat_err;
@@ -147,7 +236,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void __unused * reserved) {
 }
 
 
-JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncStopServer(JNIEnv *env, jobject thiz) {
+JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncStopServer(__unused JNIEnv *env, __unused jobject thiz) {
 
     if(!theScreen)
         return JNI_FALSE;
@@ -155,7 +244,7 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncS
     rfbShutdownServer(theScreen, TRUE);
     free(theScreen->frameBuffer);
     theScreen->frameBuffer = NULL;
-    free(theScreen->desktopName); // always malloc'ed by us
+    free((char*)theScreen->desktopName); // always malloc'ed by us
     theScreen->desktopName = NULL;
     if(theScreen->authPasswdData) { // if this is set, it was malloc'ed by us and has one password in there
         char **passwordList = theScreen->authPasswdData;
@@ -178,6 +267,8 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncS
     if(theScreen)
         return JNI_FALSE;
 
+    rfbRegisterTightVNCFileTransferExtension();
+
     theScreen=rfbGetScreen(&argc, NULL, width, height, 8, 3, 4);
     if(!theScreen) {
         __android_log_print(ANDROID_LOG_ERROR, TAG, "vncStartServer: failed allocating rfb screen");
@@ -194,6 +285,7 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncS
     theScreen->kbdAddEvent = onKeyEvent;
     theScreen->setXCutText = onCutText;
     theScreen->setXCutTextUTF8 = onCutText;
+    theScreen->newClientHook = onClientConnected;
 
     theScreen->port = port;
     theScreen->ipv6port = port;
@@ -231,7 +323,6 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncS
         (*env)->ReleaseStringUTFChars(env, password, cPassword);
     }
 
-    rfbRegisterTightVNCFileTransferExtension();
 
     rfbInitServer(theScreen);
 
@@ -248,13 +339,13 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncS
     return JNI_TRUE;
 }
 
-JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncConnectReverse(JNIEnv *env, jobject thiz, jstring host, jint port)
+JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncConnectReverse(JNIEnv *env, __unused jobject thiz, jstring host, jint port)
 {
     if(!theScreen || !theScreen->frameBuffer)
         return JNI_FALSE;
 
     if(host) { // string arg to GetStringUTFChars() must not be NULL
-        char *cHost = (*env)->GetStringUTFChars(env, host, NULL);
+        char *cHost = (char*)(*env)->GetStringUTFChars(env, host, NULL);
         if(!cHost) {
             __android_log_print(ANDROID_LOG_ERROR, TAG, "vncConnectReverse: failed getting desktop name from JNI");
             return JNI_FALSE;
@@ -266,9 +357,32 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncC
     return JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncConnectRepeater(JNIEnv *env, __unused jobject thiz, jstring host, jint port, jstring repeaterIdentifier)
+{
+    if(!theScreen || !theScreen->frameBuffer)
+        return JNI_FALSE;
+
+    if(host && repeaterIdentifier) { // string arg to GetStringUTFChars() must not be NULL
+        char *cHost = (char*)(*env)->GetStringUTFChars(env, host, NULL);
+        if(!cHost) {
+            __android_log_print(ANDROID_LOG_ERROR, TAG, "vncConnectRepeater: failed getting desktop name from JNI");
+            return JNI_FALSE;
+        }
+        char *cRepeaterIdentifier = (char*)(*env)->GetStringUTFChars(env, repeaterIdentifier, NULL);
+        if(!cRepeaterIdentifier) {
+            __android_log_print(ANDROID_LOG_ERROR, TAG, "vncConnectRepeater: failed getting repeater ID from JNI");
+            return JNI_FALSE;
+        }
+        rfbClientPtr cl = repeaterConnection(theScreen, cHost, port, cRepeaterIdentifier);
+        (*env)->ReleaseStringUTFChars(env, host, cHost);
+        (*env)->ReleaseStringUTFChars(env, repeaterIdentifier, cRepeaterIdentifier);
+        return cl != NULL;
+    }
+    return JNI_FALSE;
+}
 
 
-JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncNewFramebuffer(JNIEnv *env, jobject thiz, jint width, jint height)
+JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncNewFramebuffer(__unused JNIEnv *env, __unused jobject thiz, jint width, jint height)
 {
     rfbClientIteratorPtr iterator;
     rfbClientPtr cl;
@@ -324,7 +438,7 @@ JNIEXPORT jboolean JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncU
     return JNI_TRUE;
 }
 
-JNIEXPORT jint JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncGetFramebufferWidth(JNIEnv *env, jobject __unused thiz)
+JNIEXPORT jint JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncGetFramebufferWidth(__unused JNIEnv *env, jobject __unused thiz)
 {
     if(!theScreen || !theScreen->frameBuffer)
         return -1;
@@ -332,7 +446,7 @@ JNIEXPORT jint JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncGetFr
     return theScreen->width;
 }
 
-JNIEXPORT jint JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncGetFramebufferHeight(JNIEnv *env, jobject __unused thiz)
+JNIEXPORT jint JNICALL Java_net_christianbeier_droidvnc_1ng_MainService_vncGetFramebufferHeight(__unused JNIEnv *env, jobject __unused thiz)
 {
     if(!theScreen || !theScreen->frameBuffer)
         return -1;

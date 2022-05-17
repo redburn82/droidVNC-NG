@@ -59,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Button mButtonToggle;
     private Button mButtonReverseVNC;
+    private Button mButtonRepeaterVNC;
     private TextView mAddress;
     private boolean mIsMainServiceRunning;
     private Disposable mMainServiceStatusEventStreamConnection;
@@ -68,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         mButtonToggle = (Button) findViewById(R.id.toggle);
         mButtonToggle.setOnClickListener(view -> {
@@ -97,6 +100,12 @@ public class MainActivity extends AppCompatActivity {
             final EditText inputText = new EditText(this);
             inputText.setInputType(InputType.TYPE_CLASS_TEXT);
             inputText.setHint(getString(R.string.main_activity_reverse_vnc_hint));
+            String lastHost = prefs.getString(Constants.PREFS_KEY_REVERSE_VNC_LAST_HOST, null);
+            if(lastHost != null) {
+                inputText.setText(lastHost);
+                // select all to make new input quicker
+                inputText.setSelectAllOnFocus(true);
+            }
             inputText.requestFocus();
             inputText.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
@@ -124,9 +133,12 @@ public class MainActivity extends AppCompatActivity {
                             }
                         }
                         Log.d(TAG, "reverse vnc " + host + ":" + port);
-                        if(MainService.connectReverse(host,port))
+                        if(MainService.connectReverse(host,port)) {
                             Toast.makeText(MainActivity.this, getString(R.string.main_activity_reverse_vnc_success, host, port), Toast.LENGTH_LONG).show();
-                        else
+                            SharedPreferences.Editor ed = prefs.edit();
+                            ed.putString(Constants.PREFS_KEY_REVERSE_VNC_LAST_HOST, inputText.getText().toString());
+                            ed.apply();
+                        } else
                             Toast.makeText(MainActivity.this, getString(R.string.main_activity_reverse_vnc_fail, host, port), Toast.LENGTH_LONG).show();
                     })
                     .setNegativeButton(android.R.string.cancel, (dialogInterface, i) -> dialogInterface.cancel())
@@ -135,7 +147,74 @@ public class MainActivity extends AppCompatActivity {
             dialog.show();
         });
 
-        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mButtonRepeaterVNC = (Button) findViewById(R.id.repeater_vnc);
+        mButtonRepeaterVNC.setOnClickListener(view -> {
+
+            final EditText hostInputText = new EditText(this);
+            hostInputText.setInputType(InputType.TYPE_CLASS_TEXT);
+            hostInputText.setHint(getString(R.string.main_activity_repeater_vnc_hint));
+            String lastHost = prefs.getString(Constants.PREFS_KEY_REPEATER_VNC_LAST_HOST, "");
+            hostInputText.setText(lastHost); //host:port
+            hostInputText.requestFocus();
+            hostInputText.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            final EditText idInputText = new EditText(this);
+            idInputText.setInputType(InputType.TYPE_CLASS_NUMBER);
+            idInputText.setHint(getString(R.string.main_activity_repeater_vnc_hint_id));
+            String lastID = prefs.getString(Constants.PREFS_KEY_REPEATER_VNC_LAST_ID, "");
+            idInputText.setText(lastID); //host:port
+            idInputText.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            LinearLayout inputLayout = new LinearLayout(this);
+            inputLayout.setPadding(
+                    (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20, Resources.getSystem().getDisplayMetrics()),
+                    (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, Resources.getSystem().getDisplayMetrics()),
+                    (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20, Resources.getSystem().getDisplayMetrics()),
+                    0
+            );
+            inputLayout.setOrientation(LinearLayout.VERTICAL);
+            inputLayout.addView(hostInputText);
+            inputLayout.addView(idInputText);
+
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setView(inputLayout)
+                    .setPositiveButton(android.R.string.ok, (dialogInterface, i) -> {
+                        // parse host and port parts
+                        String[] parts = hostInputText.getText().toString().split("\\:");
+                        String host = parts[0];
+                        int port = Constants.DEFAULT_PORT_REPEATER;
+                        if (parts.length > 1) {
+                            try {
+                                port = Integer.parseInt(parts[1]);
+                            } catch(NumberFormatException unused) {
+                                // stays at default repeater port
+                            }
+                        }
+                        // parse ID
+                        String repeaterId = idInputText.getText().toString();
+                        // sanity-check
+                        if (host.isEmpty() || repeaterId.isEmpty()) {
+                            Toast.makeText(MainActivity.this, getString(R.string.main_activity_repeater_vnc_input_missing), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        // done
+                        Log.d(TAG, "repeater vnc " + host + ":" + port + ":" + repeaterId);
+                        if(MainService.connectRepeater(host, port, /*"ID:" +*/ repeaterId)) {
+                            Toast.makeText(MainActivity.this, getString(R.string.main_activity_repeater_vnc_success, host, port, repeaterId), Toast.LENGTH_LONG).show();
+                            SharedPreferences.Editor ed = prefs.edit();
+                            ed.putString(Constants.PREFS_KEY_REPEATER_VNC_LAST_HOST, host + ":" + port);
+                            ed.putString(Constants.PREFS_KEY_REPEATER_VNC_LAST_ID, repeaterId);
+                            ed.apply();
+                        }
+                        else
+                            Toast.makeText(MainActivity.this, getString(R.string.main_activity_repeater_vnc_fail, host, port, repeaterId), Toast.LENGTH_LONG).show();
+                    })
+                    .setNegativeButton(android.R.string.cancel, (dialogInterface, i) -> dialogInterface.cancel())
+                    .create();
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+            dialog.show();
+        });
+
 
         final EditText port = findViewById(R.id.settings_port);
         port.setText(String.valueOf(prefs.getInt(Constants.PREFS_KEY_SETTINGS_PORT, Constants.DEFAULT_PORT)));
@@ -251,9 +330,15 @@ public class MainActivity extends AppCompatActivity {
                 mAddress.post(() -> {
                     mAddress.setText(getString(R.string.main_activity_address) + " " + sb);
                 });
-                mButtonReverseVNC.post(() -> {
-                    mButtonReverseVNC.setVisibility(View.VISIBLE);
-                });
+
+                // show outbound connection interface
+                findViewById(R.id.outbound_text).setVisibility(View.VISIBLE);
+                findViewById(R.id.outbound_buttons).setVisibility(View.VISIBLE);
+
+                // indicate that changing these settings does not have an effect when the server is running
+                findViewById(R.id.settings_port).setEnabled(false);
+                findViewById(R.id.settings_password).setEnabled(false);
+                findViewById(R.id.settings_scaling).setEnabled(false);
 
                 mIsMainServiceRunning = true;
             }
@@ -267,9 +352,15 @@ public class MainActivity extends AppCompatActivity {
                 mAddress.post(() -> {
                     mAddress.setText("");
                 });
-                mButtonReverseVNC.post(() -> {
-                    mButtonReverseVNC.setVisibility(View.INVISIBLE);
-                });
+
+                // hide outbound connection interface
+                findViewById(R.id.outbound_text).setVisibility(View.GONE);
+                findViewById(R.id.outbound_buttons).setVisibility(View.GONE);
+
+                // indicate that changing these settings does have an effect when the server is stopped
+                findViewById(R.id.settings_port).setEnabled(true);
+                findViewById(R.id.settings_password).setEnabled(true);
+                findViewById(R.id.settings_scaling).setEnabled(true);
 
                 mIsMainServiceRunning = false;
             }

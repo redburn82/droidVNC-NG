@@ -41,6 +41,7 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
@@ -88,6 +89,8 @@ public class MainService extends Service {
     private boolean mHasPortraitInLandscapeWorkaroundApplied;
     private boolean mHasPortraitInLandscapeWorkaroundSet;
 
+    private PowerManager.WakeLock mWakeLock;
+
     private static MainService instance;
 
     //private static final Subject<StatusEvent> mStatusEventStream = BehaviorSubject.createDefault(StatusEvent.STOPPED).toSerialized();
@@ -106,6 +109,7 @@ public class MainService extends Service {
     private native boolean vncStartServer(int width, int height, int port, String desktopname, String password);
     private native boolean vncStopServer();
     private native boolean vncConnectReverse(String host, int port);
+    private native boolean vncConnectRepeater(String host, int port, String repeaterIdentifier);
     private native boolean vncNewFramebuffer(int width, int height);
     private native boolean vncUpdateFramebuffer(ByteBuffer buf);
     private native int vncGetFramebufferWidth();
@@ -128,9 +132,9 @@ public class MainService extends Service {
     public void onCreate() {
         Log.d(TAG, "onCreate");
 
-        mStatusEventStream.onNext(StatusEvent.STARTED);
-
         instance = this;
+
+        mStatusEventStream.onNext(StatusEvent.STARTED);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             /*
@@ -165,6 +169,12 @@ public class MainService extends Service {
             Get the MediaProjectionManager
          */
         mMediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+
+        /*
+            Get a wake lock
+         */
+        //noinspection deprecation
+        mWakeLock = ((PowerManager) instance.getSystemService(Context.POWER_SERVICE)).newWakeLock((PowerManager.SCREEN_DIM_WAKE_LOCK| PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE), TAG + ":clientsConnected");
 
         /*
             Start the server FIXME move this to intent handling?
@@ -218,6 +228,8 @@ public class MainService extends Service {
             mResultCode = intent.getIntExtra(EXTRA_MEDIA_PROJECTION_RESULT_CODE, 0);
             mResultData = intent.getParcelableExtra(EXTRA_MEDIA_PROJECTION_RESULT_DATA);
             startScreenCapture();
+            // if we got here, we want to restart if we were killed
+            return START_REDELIVER_INTENT;
         }
 
         if(ACTION_HANDLE_WRITE_STORAGE_RESULT.equals(intent.getAction())) {
@@ -226,6 +238,8 @@ public class MainService extends Service {
             // or ask for ask for capturing permission first (then going in step 4)
             if (mResultCode != 0 && mResultData != null) {
                 startScreenCapture();
+                // if we got here, we want to restart if we were killed
+                return START_REDELIVER_INTENT;
             } else {
                 Log.i(TAG, "Requesting confirmation");
                 // This initiates a prompt dialog for the user to confirm screen projection.
@@ -257,9 +271,33 @@ public class MainService extends Service {
             stopSelf();
         }
 
-        return START_REDELIVER_INTENT;
+        // if screen capturing was not started, we don't want a restart if we were killed
+        // especially, we don't want the permission asking to replay.
+        return START_NOT_STICKY;
     }
 
+    @SuppressLint("WakelockTimeout")
+    public static void onClientConnected(long client) {
+        Log.d(TAG, "onClientConnected: client " + client);
+
+        try {
+            instance.mWakeLock.acquire();
+        } catch (Exception e) {
+            // instance probably null
+            Log.e(TAG, "onClientConnected: wake lock acquiring failed: " + e);
+        }
+    }
+
+    public static void onClientDisconnected(long client) {
+        Log.d(TAG, "onClientDisconnected: client " + client);
+
+        try {
+            instance.mWakeLock.release();
+        } catch (Exception e) {
+            // instance probably null
+            Log.e(TAG, "onClientDisconnected: wake lock releasing failed: " + e);
+        }
+    }
 
     @SuppressLint("WrongConstant")
     private void startScreenCapture() {
@@ -490,6 +528,15 @@ public class MainService extends Service {
     public static boolean connectReverse(String host, int port) {
         try {
             return instance.vncConnectReverse(host, port);
+        }
+        catch (NullPointerException e) {
+            return false;
+        }
+    }
+
+    public static boolean connectRepeater(String host, int port, String repeaterIdentifier) {
+        try {
+            return instance.vncConnectRepeater(host, port, repeaterIdentifier);
         }
         catch (NullPointerException e) {
             return false;
