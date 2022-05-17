@@ -259,9 +259,11 @@ public class InputService extends AccessibilityService {
 		mPath = new Path();
 		mPath.moveTo( x, y );
 		mLastGestureStartTime = System.currentTimeMillis();
+		Log.e("JHGTMP", "startGesture:"+Float.toString(mLastGestureStartTime));
 	}
 
 	private void continueGesture(int x, int y) {
+		Log.e("JHGTMP", "cont Gesture sequence:"+Float.toString(System.currentTimeMillis())+"ms");
 		mPath.lineTo( x, y );
 	}
 
@@ -279,9 +281,14 @@ public class InputService extends AccessibilityService {
 		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, System.currentTimeMillis() - mLastGestureStartTime);
 =======
 */
+		//long mCurrent = System.currentTimeMillis(); //JHG
+		//Log.e("JHGTMP", "prev:"+Float.toString(mLastGestureStartTime));
 		long duration = System.currentTimeMillis() - mLastGestureStartTime;
+		//Log.e("JHGTMP", "cur -  prev:"+Float.toString(mCurrent - mLastGestureStartTime));
 		// gesture ended very very shortly after start (< 1ms). make it 1ms to get dispatched to the system
-		if (duration == 0) duration = 1;
+		if (duration < 10 ) duration = 10;
+		Log.e("JHGTMP", "end from start Gesture at :"+Float.toString(mLastGestureStartTime)+"after now: +"+Float.toString(System.currentTimeMillis())+"ms");
+		Log.e("JHGTMP", "++ Gesture end from begining to end  (:"+Float.toString(duration)+") ms");
 		GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription( mPath, 0, duration);
 		GestureDescription.Builder builder = new GestureDescription.Builder();
 		builder.addStroke(stroke);
