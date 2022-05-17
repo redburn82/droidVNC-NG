@@ -90,7 +90,6 @@ public class InputService extends AccessibilityService {
 	{
 		return instance != null;
 	}
-
 	/**
 	 * Set scaling factor that's applied to incoming pointer events by dividing coordinates by
 	 * the given factor.
@@ -119,20 +118,20 @@ public class InputService extends AccessibilityService {
 
 			// down, was up
 			if ((buttonMask & (1 << 0)) != 0 && !instance.mIsButtonOneDown) {
-				Log.i("JHGTMP","down, was up");
+				Log.i("JHGTMP","down, was up ((" + Integer.toString(x)+","+Integer.toString(y)+"))");
 				instance.startGesture(x, y);
 				instance.mIsButtonOneDown = true;
 			}
 
 			// down, was down
 			if ((buttonMask & (1 << 0)) != 0 && instance.mIsButtonOneDown) {
-				Log.i("JHGTMP","down, was down");
+				Log.i("JHGTMP","down, was down ((" + Integer.toString(x)+","+Integer.toString(y)+"))");
 				instance.continueGesture(x, y);
 			}
 
 			// up, was down
 			if ((buttonMask & (1 << 0)) == 0 && instance.mIsButtonOneDown) {
-				Log.i("JHGTMP","up, was down - endGesture");
+				Log.i("JHGTMP","up, was down - endGesture ((" + Integer.toString(x)+","+Integer.toString(y)+"))");
 				//instance.mIsButtonOneDown = false;
 				instance.endGesture(x, y);
 				instance.mIsButtonOneDown = false;
@@ -166,7 +165,12 @@ public class InputService extends AccessibilityService {
 			// instance probably null
 			Log.e(TAG, "onPointerEvent: failed: " + e.toString());
 			//JHG: tmp code for rest this state machine
-			instance.mIsButtonOneDown = false;
+			//instance.mIsButtonOneDown = false;
+
+            // force init of state of onPointerEvent's instance.mIsButtonOneDown.
+            if ( instance.mIsButtonOneDown == true ) {
+                instance.mIsButtonOneDown = false;
+            }
 		}
 	}
 
